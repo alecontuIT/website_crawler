@@ -5,8 +5,9 @@ import json
 
 
 class networkPlotter:
-    def __init__(self, network_data=None, network_weight=None, home_url=None):
+    def __init__(self, network_data=None, listed_url=None, home_url=None, header_urls=None, footer_urls=None):
         self._network = nx.Graph()
+        self.home_url=home_url
         if network_data == None:
             assert home_url is not None, 'Must provide the URL of website homepage'
             website_name = home_url.replace('https://','').replace('www.','').replace('/','')
@@ -16,21 +17,41 @@ class networkPlotter:
         else:
             self._network_data = network_data
         
-        if network_weight == None:
+        if listed_url == None:
             assert home_url is not None, 'Must provide the URL of website homepage'
             website_name = home_url.replace('https://','').replace('www.','').replace('/','')
-            self._network_weight = None
+            listed_url = None
             with open(website_name+'_listed_url.json') as f:
-                self._network_weight = json.load(f)
+                listed_url = json.load(f)
         else:
-            self._network_weight = network_weight
-        self._network_weight = list(self._network_weight.values())
+            listed_url = listed_url
+        #####self._network_weight = list(self._network_weight.values())
         
         # Add all the nodes to the network
-        self._network.add_nodes_from(list(self._network_data.keys()))
+        complete_node_list = list(self._network_data.keys())
         for url_i in range(len(list(self._network_data.values()))):
-            self._network.add_nodes_from(list(self._network_data.values())[url_i])
+            complete_node_list += list(self._network_data.values())[url_i]
+            
+            
+        if header_urls == None:
+            assert home_url is not None, 'Must provide the URL of website homepage'
+            with open(website_name+'_header_urls.json') as f:
+                header_urls = json.load(f)['header_urls']
+        for url in header_urls:
+            complete_node_list.remove(url)
+        if footer_urls == None:
+            assert home_url is not None, 'Must provide the URL of website homepage'
+            with open(website_name+'_footer_urls.json') as f:
+                footer_urls = json.load(f)['footer_urls']
+        for url in footer_urls:
+            complete_node_list.remove(url)
+            
+            
+        self._network.add_nodes_from(complete_node_list)
         
+        self._network_weight = []
+        for url in complete_node_list:
+            self._network_weight.append(listed_url[url])
         # Node weight is given by the number of time it is cited in all the website
         # Normalize this value for plotting visualiation reasons
         self._network_weight = self.normalize_weight(self._network_weight, 5, 20)
@@ -41,8 +62,9 @@ class networkPlotter:
         for key, values in self._network_data.items():
             # Iterazione sui valori per la chiave corrente
             for value in values:
-                # Aggiunta della tupla alla lista
-                edges.append((key, value))
+                if (value not in header_urls) and (value not in footer_urls):
+                    # Aggiunta della tupla alla lista
+                    edges.append((key, value))
                 
         self._network.add_edges_from(edges)
         self._pos = nx.spring_layout(self._network)
@@ -62,7 +84,8 @@ class networkPlotter:
         
         fig.add_trace(self.get_node_trace())
 
-        fig.update_layout(showlegend = False)
+        fig.update_layout(title='Network map of: '+self.home_url,
+                          showlegend = False)
 
         fig.update_xaxes(showticklabels = False)
 
@@ -73,7 +96,7 @@ class networkPlotter:
         
         
     @staticmethod
-    def make_edge(x, y, width=1):       
+    def make_edge(x, y, width=1):
         '''Creates a scatter trace for the edge between x's and y's with given width
 
         Parameters
@@ -93,7 +116,7 @@ class networkPlotter:
                            line      = dict(width = width,
                                        color = 'cornflowerblue'
                                            ),
-                           opacity   = .2,
+                           opacity   = .1,
                            mode      = 'lines')
 
     def get_edge_trace(self):
@@ -120,7 +143,7 @@ class networkPlotter:
                                                  size  = [],
                                                  line  = None))
         
-        idx = 0 
+        idx = 0
         for node in self._network.nodes():
             x, y = self._pos[node]
             node_trace['x'] += tuple([x])
@@ -130,28 +153,6 @@ class networkPlotter:
             node_trace['text'] += tuple(['<b>' + node + '</b>'])
             idx+=1
         return node_trace
-        
-    @staticmethod 
-    def normalize_list(input_list, new_min, new_max):
-        # Trova il minimo e il massimo nella lista originale
-        old_min = min(input_list)
-        old_max = max(input_list)
-
-        # Calcola l'intervallo della lista originale
-        old_range = old_max - old_min
-
-        # Calcola l'intervallo del nuovo range
-        new_range = new_max - new_min
-
-        # Normalizza ogni valore nella lista
-        normalized_list = []
-        for value in input_list:
-            # Calcola il valore normalizzato
-            normalized_value = ((value - old_min) / old_range) * new_range + new_min
-            # Aggiunge il valore normalizzato alla nuova lista
-            normalized_list.append(normalized_value)
-
-        return normalized_list
     
     @staticmethod
     def normalize_weight(input_list, new_min, new_max):

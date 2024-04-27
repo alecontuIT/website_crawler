@@ -130,6 +130,10 @@ class WebCrawler:
             json.dump(self.listed_url, fp)
         with open(website_name+'_urls_network.json', 'w') as fp:
             json.dump(self.urls_network, fp)
+        with open(website_name+'_header_urls.json', 'w') as fp:
+            json.dump({'header_urls':self.header_urls}, fp)
+        with open(website_name+'_footer_urls.json', 'w') as fp:
+            json.dump({'footer_urls':self.footer_urls}, fp)
         if self.llm:
             with open(website_name+'_llm_response.json', 'w') as fp:
                 json.dump(self.llm_response, fp)
@@ -148,6 +152,9 @@ class WebCrawler:
         if use_saved_files:
             plotter = networkPlotter(home_url=self._home_url)
         else:
-            plotter = networkPlotter(network_data=self.urls_network, 
-                                     network_weight=self.listed_url)
+            plotter = networkPlotter(network_data=self.urls_network,
+                                     listed_url=self.listed_url,
+                                     home_url=self.home_url,
+                                     header_urls=self.header_urls,
+                                     footer_urls=self.footer_urls)
         plotter.plot()
